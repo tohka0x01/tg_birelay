@@ -6,7 +6,7 @@ set -euo pipefail
 
 APP_DIR=${APP_DIR:-/opt/tg_birelay}
 SERVICE_NAME=${SERVICE_NAME:-tgbirelay}
-REPO_BASE=${REPO_BASE:-https://raw.githubusercontent.com/tohka0x01/tg_birelay/refs/heads/main}
+REPO_BASE=${REPO_BASE:-https://raw.githubusercontent.com/tohka0x01/tg_birelay/main}
 PYTHON_BIN="$APP_DIR/venv/bin/python"
 MODULE_ENTRY="tg_birelay.app"
 FILES=(__init__.py app.py database.py captcha.py README.md install.sh)

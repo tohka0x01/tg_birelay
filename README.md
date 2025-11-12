@@ -23,7 +23,7 @@ tg_birelay/
 
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/tohka0x01/tg_birelay/refs/heads/main/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/tohka0x01/tg_birelay/main/install.sh)
 ```
 
 脚本会：
@@ -55,4 +55,3 @@ bash <(curl -Ls https://raw.githubusercontent.com/tohka0x01/tg_birelay/refs/head
    python -m tg_birelay.app
    ```
 4. 打开管理 Bot，通过菜单添加子 Bot Token、绑定 Topic 群 ID、切换私聊/Topic 模式，并可在“📝 管理欢迎语 / 👋 成员欢迎语”中自定义 `/start` 文案。普通用户在 TG 内完成验证码、黑名单校验与双向沟通。
-
