@@ -23,7 +23,7 @@ tg_birelay/
 
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/tohka0x01/tg_birelay/main/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/tohka0x01/tg_birelay/master/install.sh)
 ```
 
 脚本会：
