@@ -43,7 +43,7 @@ install_prereqs() {
 fetch_sources() {
   mkdir -p "$APP_DIR"
   for file in "${FILES[@]}"; do
-    echo "??  ��ȡ $file"
+    echo "📥 获取 $file"
     target="$APP_DIR/$file"
     mkdir -p "$(dirname "$target")"
     curl -fsSL "$REPO_BASE/$file" -o "$target"

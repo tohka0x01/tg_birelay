@@ -110,7 +110,7 @@ def is_reset_command(text: str) -> bool:
 def format_bot_info(row) -> str:
     mode = '🔐 私聊' if row['mode'] == 'direct' else '🏷️ Topic'
     forum = row['forum_group_id'] or '未设置'
-    welcome = '自定义' if row.get('client_start_text') else '默认'
+    welcome = '自定义' if row['client_start_text'] else '默认'
     return (
         f"🤖 <b>@{row['bot_username']}</b>\n"
         f"👤 Owner: <code>{row['owner_id']}</code>\n"
