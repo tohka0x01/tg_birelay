@@ -155,7 +155,7 @@ def format_bot_info(row) -> str:
         captcha_line,
         f"🕒 创建时间: {row['created_at']}",
     ]
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 def bot_detail_keyboard(row) -> InlineKeyboardMarkup:
     bot_username = row['bot_username']
@@ -510,10 +510,16 @@ async def handle_client(update: Update, context: ContextTypes.DEFAULT_TYPE, owne
         await message.reply_text("⚠️ Bot 配置已失效，请联系托管方。")
         return
 
-    # 管理命令
-    if message.text and message.text.startswith("/") and message.from_user.id == owner_id:
-        await handle_owner_command(message, context, bot_username, row)
-        return
+    is_owner = bool(message.from_user and message.from_user.id == owner_id)
+    is_command = bool(message.text and message.text.startswith("/"))
+    if is_owner and is_command:
+        if chat.type == ChatType.PRIVATE and chat.id == owner_id:
+            await handle_owner_command(message, context, bot_username, row)
+            return
+        if row["mode"] == "forum" and chat.id == row["forum_group_id"]:
+            await handle_owner_command(message, context, bot_username, row)
+            return
+
 
     # 普通用户逻辑
     if chat.type == ChatType.PRIVATE and chat.id != owner_id:
@@ -641,6 +647,14 @@ async def relay_forum(message, context, row, bot_username: str) -> None:
 
 async def handle_owner_command(message, context, bot_username: str, bot_row) -> None:
     text = message.text.strip()
+    chat = message.chat
+    forum_thread_target: int | None = None
+    if bot_row["mode"] == "forum" and chat.id == bot_row.get("forum_group_id"):
+        topic_id = getattr(message, "message_thread_id", None)
+        if topic_id is None and message.reply_to_message:
+            topic_id = getattr(message.reply_to_message, "message_thread_id", None)
+        if topic_id:
+            forum_thread_target = db.user_by_topic(bot_username, topic_id)
     if text.startswith("/bl"):
         entries = db.list_blacklist(bot_username)
         if not entries:
@@ -651,7 +665,7 @@ async def handle_owner_command(message, context, bot_username: str, bot_row) -> 
         return
 
     if text.startswith("/b"):
-        target = await resolve_target_id(message, bot_row, bot_username)
+        target = await resolve_target_id(message, bot_row, bot_username, thread_target=forum_thread_target)
         if not target:
             await message.reply_text("⚠️ 请回复用户消息或附带 ID。")
             return
@@ -663,7 +677,7 @@ async def handle_owner_command(message, context, bot_username: str, bot_row) -> 
         return
 
     if text.startswith("/ub"):
-        target = await resolve_target_id(message, bot_row, bot_username)
+        target = await resolve_target_id(message, bot_row, bot_username, thread_target=forum_thread_target)
         if not target:
             await message.reply_text("⚠️ 请回复用户消息或附带 ID。")
             return
@@ -675,7 +689,7 @@ async def handle_owner_command(message, context, bot_username: str, bot_row) -> 
         return
 
     if text.startswith("/uv"):
-        target = await resolve_target_id(message, bot_row, bot_username)
+        target = await resolve_target_id(message, bot_row, bot_username, thread_target=forum_thread_target)
         if not target:
             await message.reply_text("⚠️ 请回复用户消息或附带 ID。")
             return
@@ -686,7 +700,7 @@ async def handle_owner_command(message, context, bot_username: str, bot_row) -> 
         return
 
     if text.startswith("/id"):
-        target = await resolve_target_id(message, bot_row, bot_username)
+        target = await resolve_target_id(message, bot_row, bot_username, thread_target=forum_thread_target)
         if not target:
             await message.reply_text("⚠️ 请回复用户消息或附带 ID。")
             return
@@ -694,16 +708,33 @@ async def handle_owner_command(message, context, bot_username: str, bot_row) -> 
         return
 
 
-async def resolve_target_id(message, bot_row, bot_username: str) -> int | None:
+async def resolve_target_id(message, bot_row, bot_username: str, thread_target: int | None = None) -> int | None:
     parts = message.text.split()
     if len(parts) == 2 and parts[1].lstrip("-").isdigit():
         return int(parts[1])
     if message.reply_to_message:
+        reply = message.reply_to_message
         if bot_row["mode"] == "direct":
-            forward_id = message.reply_to_message.message_id
+            forward_id = reply.message_id
             return db.get_forward_target(bot_username, forward_id)
         if bot_row["mode"] == "forum":
-            return message.reply_to_message.from_user.id if message.reply_to_message.from_user else None
+            if reply.forward_from:
+                return reply.forward_from.id
+            thread_id = getattr(reply, "message_thread_id", None)
+            if thread_id:
+                user_id = db.user_by_topic(bot_username, thread_id)
+                if user_id:
+                    return user_id
+            if reply.from_user and reply.from_user.id != message.from_user.id:
+                return reply.from_user.id
+    if thread_target:
+        return thread_target
+    if bot_row["mode"] == "forum":
+        topic_id = getattr(message, "message_thread_id", None)
+        if topic_id:
+            user_id = db.user_by_topic(bot_username, topic_id)
+            if user_id:
+                return user_id
     return None
 
 
