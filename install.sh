@@ -59,13 +59,13 @@ setup_venv() {
 }
 
 write_env_file() {
-  read -rp "��������� Bot �� Token: " MANAGER_TOKEN
+  read -rp "请输入主控 Bot 的 Token: " MANAGER_TOKEN
   while [[ -z "$MANAGER_TOKEN" ]]; do
-    read -rp "Token ����Ϊ�գ�����������: " MANAGER_TOKEN
+    read -rp "Token 不能为空，请重新输入: " MANAGER_TOKEN
   done
-  read -rp "������������ӵ�е����˺ŵ� ID��ֻ֧�ֵ���: " MANAGER_OWNER_ID
+  read -rp "请输入主控账号的数字 ID（仅允许本人使用）: " MANAGER_OWNER_ID
   while [[ -z "$MANAGER_OWNER_ID" || ! "$MANAGER_OWNER_ID" =~ ^-?[0-9]+$ ]]; do
-    read -rp "ID ����Ϊ�����֣��������룺 " MANAGER_OWNER_ID
+    read -rp "ID 只能是数字，请重新输入: " MANAGER_OWNER_ID
   done
   DATABASE_PATH=${DATABASE_PATH:-$APP_DIR/tg_hosts.db}
 
@@ -75,7 +75,7 @@ write_env_file() {
     echo "DATABASE_PATH=$DATABASE_PATH"
   } >"$APP_DIR/.env"
 
-  echo "? ��д�� $APP_DIR/.env"
+  echo "✅ 已写入 $APP_DIR/.env"
 }
 
 install_service() {
