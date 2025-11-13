@@ -155,7 +155,7 @@ def format_bot_info(row) -> str:
         captcha_line,
         f"🕒 创建时间: {row['created_at']}",
     ]
-    return "\n".join(lines)
+    return chr(10).join(lines)
 
 def bot_detail_keyboard(row) -> InlineKeyboardMarkup:
     bot_username = row['bot_username']
@@ -188,11 +188,10 @@ def captcha_topics_keyboard(bot_username: str, selected: list[str]) -> InlineKey
 async def show_captcha_topics(query, row) -> None:
     bot_username = row['bot_username']
     selected, _ = resolve_captcha_pools(row)
-    text = (
-        f"🧩 题库设置（@{bot_username}）\n"
-        "点击按钮可启用/停用对应题型；全部关闭将回退至默认题库。\n"
-        "若希望彻底关闭验证，请使用“验证码开关”。"
-    )
+    text = f"""🧩 题库设置（@{bot_username}）
+点击按钮可启用/停用对应题型；全部关闭将回退至默认题库。
+若希望彻底关闭验证码，请使用“验证码开关”。
+"""
     await query.edit_message_text(text, reply_markup=captcha_topics_keyboard(bot_username, selected))
 
 
@@ -209,17 +208,6 @@ def get_owned_bot(bot_username: str, owner_id: int):
     if not row or row['owner_id'] != owner_id:
         return None
     return row
-    forum = row['forum_group_id'] or '未设置'
-    welcome = '自定义' if row['client_start_text'] else '默认'
-    return (
-        f"🤖 <b>@{row['bot_username']}</b>\n"
-        f"👤 Owner: <code>{row['owner_id']}</code>\n"
-        f"⚙️ 当前模式: {mode}\n"
-        f"🏷️ Topic 群 ID: {forum}\n"
-        f"👋 成员欢迎语: {welcome}\n"
-        f"🕒 创建时间: {row['created_at']}"
-    )
-
 
 # ------------ 管理端交互 ------------
 async def manager_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -286,7 +274,10 @@ async def register_token_flow(message, owner_id: int, token: str) -> None:
         bot = Bot(token=token)
         bot_info = await bot.get_me()
     except Exception as exc:
-        await message.reply_text("❌ Token 无效，请重新输入。\n详情: %s" % exc)
+        await message.reply_text(
+            f"""❌ Token 无效，请重新输入。
+详情: {exc}"""
+        )
         return
 
     bot_username = bot_info.username
@@ -299,13 +290,16 @@ async def register_token_flow(message, owner_id: int, token: str) -> None:
     await ensure_sub_bot(bot_info.username, token, owner_id)
 
     await message.reply_text(
-        f"✅ 已接管 @{bot_username}\n"
-        "默认模式为私聊转发，可在“我的 Bot”界面切换。"
+        f"""✅ 已接管 @{bot_username}
+默认模式为私聊转发，可在“我的 Bot”界面切换。"""
     )
 
     now = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
     await send_admin_log(
-        f"🆕 新增子 Bot\n👤 <code>{owner_id}</code>\n🤖 @{bot_username}\n🕒 {now}"
+        f"""🆕 新增子 Bot
+👤 <code>{owner_id}</code>
+🤖 @{bot_username}
+🕒 {now}"""
     )
 
 
@@ -324,7 +318,8 @@ async def assign_forum_flow(message, bot_username: str, raw_value: str) -> None:
     await message.reply_text(f"🏷️ 已为 @{bot_username} 绑定 Topic 群 {forum_id}")
 
     await send_admin_log(
-        f"🏷️ @{bot_username} Topic 信息更新\n群 ID: <code>{forum_id}</code>"
+        f"""🏷️ @{bot_username} Topic 信息更新
+群 ID: <code>{forum_id}</code>"""
     )
 
 
@@ -359,7 +354,8 @@ async def manager_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if data == 'menu:welcome':
         context.user_data['await_manager_welcome'] = True
         await query.edit_message_text(
-            '请发送新的管理员欢迎语。\n发送 /default 可恢复默认设置。',
+            """请发送新的管理员欢迎语。
+发送 /default 可恢复默认设置。""",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('⬅️ 返回', callback_data='menu:home')]])
         )
         return
@@ -418,7 +414,8 @@ async def manager_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             return
         context.user_data['await_client_welcome'] = {'bot_username': bot_username}
         await query.edit_message_text(
-            f'请发送 @{bot_username} 的成员欢迎语。\n发送 /default 可恢复默认。',
+            f"""请发送 @{bot_username} 的成员欢迎语。
+发送 /default 可恢复默认。""",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('⬅️ 返回', callback_data=f"bot:{bot_username}")]])
         )
         return
@@ -590,12 +587,10 @@ async def ensure_verified(message, context, bot_username: str, owner_id: int, bo
 
 
 async def notify_owner_verified(bot: Bot, owner_id: int, bot_username: str, user) -> None:
-    text = (
-        "🆗 有用户通过验证\n"
-        f"🤖 @{bot_username}\n"
-        f"👤 {user.full_name or '访客'}\n"
-        f"🆔 <code>{user.id}</code>"
-    )
+    text = f"""🆗 有用户通过验证
+🤖 @{bot_username}
+👤 {user.full_name or '访客'}
+🆔 <code>{user.id}</code>"""
     try:
         await bot.send_message(owner_id, text, parse_mode='HTML')
     except Exception as exc:
@@ -661,7 +656,8 @@ async def handle_owner_command(message, context, bot_username: str, bot_row) -> 
             await message.reply_text("👍 当前没有黑名单用户。")
             return
         lines = [f"• <code>{row['user_id']}</code> ({row['created_at']})" for row in entries[:30]]
-        await message.reply_text("🛑 黑名单：\n" + "\n".join(lines), parse_mode="HTML")
+        await message.reply_text("""🛑 黑名单：
+""" + chr(10).join(lines), parse_mode="HTML")
         return
 
     if text.startswith("/b"):
@@ -749,13 +745,11 @@ async def send_user_card(message, context, bot_username: str, user_id: int) -> N
     status = []
     status.append("🚫 黑名单" if blocked else "🟢 正常")
     status.append("✅ 已验证" if verified else "❓ 未验证")
-    text = (
-        f"👤 用户卡片\n"
-        f"🆔 <code>{user.id}</code>\n"
-        f"📛 {user.full_name or '-'}\n"
-        f"🌐 @{user.username or '无'}\n"
-        f"🪪 状态：{' | '.join(status)}"
-    )
+    text = f"""👤 用户卡片
+🆔 <code>{user.id}</code>
+📛 {user.full_name or '-'}
+🌐 @{user.username or '无'}
+🛡️ 状态：{' | '.join(status)}"""
     await message.reply_text(text, parse_mode="HTML")
 
 
