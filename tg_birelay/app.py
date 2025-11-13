@@ -74,6 +74,7 @@ DEFAULT_CLIENT_WELCOME = (
 )
 
 
+
 # ------------ 通用工具 ------------
 async def send_admin_log(text: str) -> None:
     if not ADMIN_CHANNEL:
