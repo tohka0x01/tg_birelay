@@ -31,8 +31,14 @@ from .database import Database
 load_dotenv()
 
 MANAGER_TOKEN = os.getenv("MANAGER_TOKEN")
+MANAGER_OWNER_ID = int(os.getenv("MANAGER_OWNER_ID", "0") or 0)
 ADMIN_CHANNEL = os.getenv("ADMIN_CHANNEL")
 DATABASE_PATH = os.getenv("DATABASE_PATH", "./tg_hosts.db")
+
+if not MANAGER_TOKEN:
+    raise RuntimeError("请在 .env 配置 MANAGER_TOKEN")
+if not MANAGER_OWNER_ID:
+    raise RuntimeError("请在 .env 配置 MANAGER_OWNER_ID")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,6 +50,19 @@ db = Database(DATABASE_PATH)
 pending_challenges: Dict[str, Challenge] = {}
 running_apps: Dict[str, Application] = {}
 manager_app: Application | None = None
+
+FORBIDDEN_MANAGER_TEXT = "⚠ 此托管面板仅限授权 Owner 使用。"
+
+
+def is_authorized_manager(user_id: int | None) -> bool:
+    return bool(user_id) and user_id == MANAGER_OWNER_ID
+
+
+async def respond_manager_forbidden(update: Update) -> None:
+    if update.message:
+        await update.message.reply_text(FORBIDDEN_MANAGER_TEXT)
+    elif update.callback_query:
+        await update.callback_query.answer(FORBIDDEN_MANAGER_TEXT, show_alert=True)
 
 DEFAULT_MANAGER_WELCOME = """👋 欢迎来到 TGBiRelay 管理面板
 ➕ 通过“添加 Bot”提交 Bot Token 即可启动托管；
@@ -213,6 +232,9 @@ def get_owned_bot(bot_username: str, owner_id: int):
 async def manager_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     owner_id = user.id if user else 0
+    if not is_authorized_manager(owner_id):
+        await respond_manager_forbidden(update)
+        return
     if user:
         db.upsert_owner(owner_id, user.username)
     text = manager_welcome_text(owner_id)
@@ -229,7 +251,10 @@ async def handle_manager_text(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     user = message.from_user
-    user_id = user.id
+    user_id = user.id if user else 0
+    if not is_authorized_manager(user_id):
+        await message.reply_text(FORBIDDEN_MANAGER_TEXT)
+        return
     user_data = context.user_data
     text_value = message.text.strip()
 
@@ -325,9 +350,12 @@ async def assign_forum_flow(message, bot_username: str, raw_value: str) -> None:
 
 async def manager_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
+    owner_id = query.from_user.id
+    if not is_authorized_manager(owner_id):
+        await query.answer(FORBIDDEN_MANAGER_TEXT, show_alert=True)
+        return
     await query.answer()
     data = query.data
-    owner_id = query.from_user.id
 
     if data == 'menu:add':
         context.user_data['await_token'] = True

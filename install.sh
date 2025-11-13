@@ -59,20 +59,23 @@ setup_venv() {
 }
 
 write_env_file() {
-  read -rp "请输入管理 Bot 的 Token: " MANAGER_TOKEN
+  read -rp "��������� Bot �� Token: " MANAGER_TOKEN
   while [[ -z "$MANAGER_TOKEN" ]]; do
-    read -rp "Token 不能为空，请重新输入: " MANAGER_TOKEN
+    read -rp "Token ����Ϊ�գ�����������: " MANAGER_TOKEN
   done
-  read -rp "请输入接收日志的频道/群 ID（可留空）: " ADMIN_CHANNEL
+  read -rp "������������ӵ�е����˺ŵ� ID��ֻ֧�ֵ���: " MANAGER_OWNER_ID
+  while [[ -z "$MANAGER_OWNER_ID" || ! "$MANAGER_OWNER_ID" =~ ^-?[0-9]+$ ]]; do
+    read -rp "ID ����Ϊ�����֣��������룺 " MANAGER_OWNER_ID
+  done
   DATABASE_PATH=${DATABASE_PATH:-$APP_DIR/tg_hosts.db}
 
   {
     echo "MANAGER_TOKEN=$MANAGER_TOKEN"
-    [[ -n "${ADMIN_CHANNEL:-}" ]] && echo "ADMIN_CHANNEL=$ADMIN_CHANNEL"
+    echo "MANAGER_OWNER_ID=$MANAGER_OWNER_ID"
     echo "DATABASE_PATH=$DATABASE_PATH"
   } >"$APP_DIR/.env"
 
-  echo "✅ 已写入 $APP_DIR/.env"
+  echo "? ��д�� $APP_DIR/.env"
 }
 
 install_service() {
