@@ -644,7 +644,8 @@ async def handle_owner_command(message, context, bot_username: str, bot_row) -> 
     text = message.text.strip()
     chat = message.chat
     forum_thread_target: int | None = None
-    if bot_row["mode"] == "forum" and chat.id == bot_row.get("forum_group_id"):
+    forum_group_id = bot_row["forum_group_id"]
+    if bot_row["mode"] == "forum" and forum_group_id and chat.id == forum_group_id:
         topic_id = getattr(message, "message_thread_id", None)
         if topic_id is None and message.reply_to_message:
             topic_id = getattr(message.reply_to_message, "message_thread_id", None)
