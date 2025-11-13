@@ -46,30 +46,18 @@ running_apps: Dict[str, Application] = {}
 manager_app: Application | None = None
 
 DEFAULT_MANAGER_WELCOME = (
-    "👋 欢迎使用 TGBiRelay 管理端
-
-"
-    "• “添加 Bot” —— 粘贴子 Bot Token 即可接入托管；
-"
-    "• “我的 Bot” —— 查看并切换私聊 / Topic、绑定群组；
-"
-    "• “管理员欢迎语” —— 自定义主控 Bot /start 引导文案。
-
-"
+    "👋 欢迎使用 TGBiRelay 管理端\\n\\n"
+    "• “添加 Bot” —— 粘贴子 Bot Token 即可接入托管；\\n"
+    "• “我的 Bot” —— 查看并切换私聊 / Topic、绑定群组；\\n"
+    "• “管理员欢迎语” —— 自定义主控 Bot /start 引导文案。\\n\\n"
     "选择下方菜单开始管理。"
 )
 
 DEFAULT_CLIENT_WELCOME = (
-    "🎉 已连接客服，请直接发送你的诉求
-
-"
-    "• 私聊模式：消息将直接转给客服；
-"
-    "• Topic 模式：系统会为你创建独立主题方便追踪；
-"
-    "• 如需撤销验证码，可联系管理员使用 /uv 指令。
-
-"
+    "🎉 已连接客服，请直接发送你的诉求\\n\\n"
+    "• 私聊模式：消息将直接转给客服；\\n"
+    "• Topic 模式：系统会为你创建独立主题方便追踪；\\n"
+    "• 如需撤销验证码，可联系管理员使用 /uv 指令。\\n\\n"
     "我们会尽快回复，感谢等待。"
 )
 
