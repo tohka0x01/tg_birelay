@@ -45,21 +45,17 @@ pending_challenges: Dict[str, Challenge] = {}
 running_apps: Dict[str, Application] = {}
 manager_app: Application | None = None
 
-DEFAULT_MANAGER_WELCOME = (
-    "👋 欢迎使用 TGBiRelay 管理端"
-    "• “添加 Bot” —— 粘贴子 Bot Token 即可接入托管；"
-    "• “我的 Bot” —— 查看并切换私聊 / Topic、绑定群组；"
-    "• “管理员欢迎语” —— 自定义主控 Bot /start 引导文案。"
-    "选择下方菜单开始管理。"
-)
+DEFAULT_MANAGER_WELCOME = """👋 欢迎来到 TGBiRelay 管理面板
+➕ 通过“添加 Bot”提交 Bot Token 即可启动托管；
+🗂 “我的 Bot” 可查看状态、切换私聊 / Topic、配置验证码；
+✏️ “管理员欢迎语” 可自定义 /start 引导文案；
+请选择下方菜单继续操作。"""
 
-DEFAULT_CLIENT_WELCOME = (
-    "🎉 已连接客服，请直接发送你的诉求"
-    "• 私聊模式：消息将直接转给客服"
-    "• Topic 模式：系统会为你创建独立主题方便追踪"
-    "• 如需撤销验证码，可联系管理员使用 /uv 指令。"
-    "我们会尽快回复，感谢等待。"
-)
+DEFAULT_CLIENT_WELCOME = """🤖 欢迎使用中继客服机器人
+📨 私聊模式：所有消息将直接转交管理员；
+🧵 Topic 模式：系统会为你创建独立话题追踪；
+🛡 发送验证码请联系管理员使用 /uv；
+请耐心等待回复，感谢理解。"""
 
 
 
