@@ -139,7 +139,6 @@ def is_reset_command(text: str) -> bool:
         return True
     return stripped in {'恢复默认', '恢复', '重置', '默认'}
 
-
 def format_bot_info(row) -> str:
     mode = '🔐 私聊' if row['mode'] == 'direct' else '🏷️ Topic'
     forum = row['forum_group_id'] or '未设置'
@@ -151,22 +150,16 @@ def format_bot_info(row) -> str:
         captcha_line = f"🛡️ 验证：开启（{pool_text}）"
     else:
         captcha_line = '🛡️ 验证：关闭'
-    return (
-        f"🤖 <b>@{row['bot_username']}</b>
-"
-        f"👤 Owner: <code>{row['owner_id']}</code>
-"
-        f"⚙️ 当前模式: {mode}
-"
-        f"🏷️ Topic 群 ID: {forum}
-"
-        f"👋 成员欢迎语: {welcome}
-"
-        f"{captcha_line}
-"
-        f"🕒 创建时间: {row['created_at']}"
-    )
-
+    lines = [
+        f"🤖 <b>@{row['bot_username']}</b>",
+        f"👤 Owner: <code>{row['owner_id']}</code>",
+        f"⚙ 当前模式: {mode}",
+        f"🏷️ Topic 群 ID: {forum}",
+        f"👋 成员欢迎语: {welcome}",
+        captcha_line,
+        f"🕒 创建时间: {row['created_at']}",
+    ]
+    return "\\n".join(lines)
 
 def bot_detail_keyboard(row) -> InlineKeyboardMarkup:
     bot_username = row['bot_username']
@@ -370,8 +363,7 @@ async def manager_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if data == 'menu:welcome':
         context.user_data['await_manager_welcome'] = True
         await query.edit_message_text(
-            '请发送新的管理员欢迎语。
-发送 /default 可恢复默认设置。',
+            '请发送新的管理员欢迎语。\n发送 /default 可恢复默认设置。',
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('⬅️ 返回', callback_data='menu:home')]])
         )
         return
@@ -430,8 +422,7 @@ async def manager_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             return
         context.user_data['await_client_welcome'] = {'bot_username': bot_username}
         await query.edit_message_text(
-            f'请发送 @{bot_username} 的成员欢迎语。
-发送 /default 可恢复默认。',
+            f'请发送 @{bot_username} 的成员欢迎语。\n发送 /default 可恢复默认。',
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('⬅️ 返回', callback_data=f"bot:{bot_username}")]])
         )
         return
