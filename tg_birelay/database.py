@@ -69,6 +69,8 @@ class Database:
         )
         self._ensure_column("owners", "manager_start_text", "TEXT")
         self._ensure_column("bots", "client_start_text", "TEXT")
+        self._ensure_column("bots", "captcha_enabled", "INTEGER NOT NULL DEFAULT 1")
+        self._ensure_column("bots", "captcha_topics", "TEXT")
         self.conn.commit()
 
     def _ensure_column(self, table: str, column: str, definition: str) -> None:
@@ -134,6 +136,18 @@ class Database:
     def update_mode(self, bot_username: str, mode: str) -> None:
         with self.cursor() as cur:
             cur.execute("UPDATE bots SET mode=? WHERE bot_username=?", (mode, bot_username))
+
+    def set_captcha_enabled(self, bot_username: str, enabled: bool) -> None:
+        with self.cursor() as cur:
+            cur.execute(
+                "UPDATE bots SET captcha_enabled=? WHERE bot_username=?",
+                (1 if enabled else 0, bot_username),
+            )
+
+    def set_captcha_topics(self, bot_username: str, topics: list[str] | None) -> None:
+        value = ",".join(topics) if topics else None
+        with self.cursor() as cur:
+            cur.execute("UPDATE bots SET captcha_topics=? WHERE bot_username=?", (value, bot_username))
 
     def assign_forum(self, bot_username: str, forum_id: int | None) -> None:
         with self.cursor() as cur:

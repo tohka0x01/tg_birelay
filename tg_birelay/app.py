@@ -25,7 +25,7 @@ from telegram.ext import (
     filters,
 )
 
-from .captcha import Challenge, build_challenge
+from .captcha import CHALLENGE_OPTIONS, Challenge, build_challenge
 from .database import Database
 
 load_dotenv()
@@ -46,19 +46,31 @@ running_apps: Dict[str, Application] = {}
 manager_app: Application | None = None
 
 DEFAULT_MANAGER_WELCOME = (
-    "👋 欢迎使用 TGBiRelay 管理面板\n\n"
-    "➕ 添加子 Bot：粘贴 Token 即可托管；\n"
-    "🤖 我的 Bot：查看模式、Topic 群、拉黑名单等；\n"
-    "📝 欢迎语：可以自定义管理员面板及成员欢迎语。\n\n"
-    "请选择下方功能开始。"
+    "👋 欢迎使用 TGBiRelay 管理端
+
+"
+    "• “添加 Bot” —— 粘贴子 Bot Token 即可接入托管；
+"
+    "• “我的 Bot” —— 查看并切换私聊 / Topic、绑定群组；
+"
+    "• “管理员欢迎语” —— 自定义主控 Bot /start 引导文案。
+
+"
+    "选择下方菜单开始管理。"
 )
 
 DEFAULT_CLIENT_WELCOME = (
-    "🎉 欢迎，消息已进入客服中枢\n\n"
-    "• 私聊模式：消息将直接转给运营者；\n"
-    "• Topic 模式：每位用户拥有独立话题，方便协同；\n"
-    "• /uv 由运营者可撤销验证，拉黑用户后无法继续会话。\n\n"
-    "请直接留言，我们会尽快回复。"
+    "🎉 已连接客服，请直接发送你的诉求
+
+"
+    "• 私聊模式：消息将直接转给客服；
+"
+    "• Topic 模式：系统会为你创建独立主题方便追踪；
+"
+    "• 如需撤销验证码，可联系管理员使用 /uv 指令。
+
+"
+    "我们会尽快回复，感谢等待。"
 )
 
 
@@ -75,12 +87,44 @@ async def send_admin_log(text: str) -> None:
         logger.warning("发送管理员日志失败: %s", exc)
 
 
+async def send_ephemeral_reply(message, text: str, *, delay: int = 3, **kwargs):
+    """回复用户后在短暂延迟后自动撤回提示，避免聊天记录堆积系统消息。"""
+    reply = await message.reply_text(text, **kwargs)
+
+    async def _cleanup() -> None:
+        await asyncio.sleep(delay)
+        try:
+            await reply.delete()
+        except Exception:
+            pass
+
+    asyncio.create_task(_cleanup())
+    return reply
+
+
+def captcha_enabled(row) -> bool:
+    value = row["captcha_enabled"]
+    if value is None:
+        return True
+    return bool(value)
+
+
+def resolve_captcha_pools(row):
+    raw = row["captcha_topics"]
+    if not raw:
+        return list(CHALLENGE_OPTIONS.keys()), False
+    selected = [key for key in raw.split(",") if key in CHALLENGE_OPTIONS]
+    if not selected:
+        return list(CHALLENGE_OPTIONS.keys()), False
+    return selected, True
+
+
 def menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("➕ 添加子 Bot", callback_data="menu:add")],
-            [InlineKeyboardButton("🤖 我的 Bot", callback_data="menu:list")],
-            [InlineKeyboardButton("📝 管理欢迎语", callback_data="menu:welcome")],
+            [InlineKeyboardButton('➕ 添加 Bot', callback_data='menu:add')],
+            [InlineKeyboardButton('🤖 我的 Bot', callback_data='menu:list')],
+            [InlineKeyboardButton('👋 管理员欢迎语', callback_data='menu:welcome')],
         ]
     )
 
@@ -109,6 +153,84 @@ def is_reset_command(text: str) -> bool:
 
 def format_bot_info(row) -> str:
     mode = '🔐 私聊' if row['mode'] == 'direct' else '🏷️ Topic'
+    forum = row['forum_group_id'] or '未设置'
+    welcome = '自定义' if row['client_start_text'] else '默认'
+    enabled = captcha_enabled(row)
+    pools, custom = resolve_captcha_pools(row)
+    if enabled:
+        pool_text = '默认题库' if not custom else '、'.join(CHALLENGE_OPTIONS[k] for k in pools)
+        captcha_line = f"🛡️ 验证：开启（{pool_text}）"
+    else:
+        captcha_line = '🛡️ 验证：关闭'
+    return (
+        f"🤖 <b>@{row['bot_username']}</b>
+"
+        f"👤 Owner: <code>{row['owner_id']}</code>
+"
+        f"⚙️ 当前模式: {mode}
+"
+        f"🏷️ Topic 群 ID: {forum}
+"
+        f"👋 成员欢迎语: {welcome}
+"
+        f"{captcha_line}
+"
+        f"🕒 创建时间: {row['created_at']}"
+    )
+
+
+def bot_detail_keyboard(row) -> InlineKeyboardMarkup:
+    bot_username = row['bot_username']
+    captcha_status = "开启" if captcha_enabled(row) else "关闭"
+    target_mode = 'forum' if row['mode'] == 'direct' else 'direct'
+    mode_label = '切换为 Topic 模式' if target_mode == 'forum' else '切换为私聊模式'
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(f'🔄 {mode_label}', callback_data=f"mode:{bot_username}:{target_mode}")],
+            [InlineKeyboardButton('🏷️ 绑定 Topic 群', callback_data=f"forum:{bot_username}")],
+            [InlineKeyboardButton('🛡️ 验证开关：' + captcha_status, callback_data=f"captcha:toggle:{bot_username}")],
+            [InlineKeyboardButton('🧩 题库设置', callback_data=f"captcha:topics:{bot_username}")],
+            [InlineKeyboardButton('👋 设置欢迎语', callback_data=f"welcome:{bot_username}")],
+            [InlineKeyboardButton('🗑️ 解除托管', callback_data=f"drop:{bot_username}")],
+            [InlineKeyboardButton('◀️ 返回列表', callback_data='menu:list')],
+        ]
+    )
+
+
+def captcha_topics_keyboard(bot_username: str, selected: list[str]) -> InlineKeyboardMarkup:
+    buttons = []
+    for key, label in CHALLENGE_OPTIONS.items():
+        status = "✅" if key in selected else "⬜️"
+        buttons.append([InlineKeyboardButton(f"{status} {label}", callback_data=f"captcha:pool:{bot_username}:{key}")])
+    buttons.append([InlineKeyboardButton('恢复默认（默认启用全部）', callback_data=f"captcha:topicaction:{bot_username}:reset")])
+    buttons.append([InlineKeyboardButton('⬅️ 返回', callback_data=f"bot:{bot_username}")])
+    return InlineKeyboardMarkup(buttons)
+
+
+async def show_captcha_topics(query, row) -> None:
+    bot_username = row['bot_username']
+    selected, _ = resolve_captcha_pools(row)
+    text = (
+        f"🧩 题库设置（@{bot_username}）\n"
+        "点击按钮可启用/停用对应题型；全部关闭将回退至默认题库。\n"
+        "若希望彻底关闭验证，请使用“验证码开关”。"
+    )
+    await query.edit_message_text(text, reply_markup=captcha_topics_keyboard(bot_username, selected))
+
+
+async def show_bot_detail(query, row) -> None:
+    await query.edit_message_text(
+        format_bot_info(row),
+        parse_mode='HTML',
+        reply_markup=bot_detail_keyboard(row),
+    )
+
+
+def get_owned_bot(bot_username: str, owner_id: int):
+    row = db.get_bot(bot_username)
+    if not row or row['owner_id'] != owner_id:
+        return None
+    return row
     forum = row['forum_group_id'] or '未设置'
     welcome = '自定义' if row['client_start_text'] else '默认'
     return (
@@ -236,74 +358,64 @@ async def manager_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     if data == 'menu:add':
         context.user_data['await_token'] = True
-        await query.edit_message_text('🪙 请发送需要托管的 Bot Token。')
+        await query.edit_message_text('🆔 请发送需要托管的 Bot Token。')
         return
 
     if data == 'menu:list':
         bots = db.list_bots_for_owner(owner_id)
         if not bots:
-            await query.edit_message_text('🤔 暂无子 Bot，可先添加一个。', reply_markup=menu_keyboard())
+            await query.edit_message_text('🤔 暂无托管 Bot，可先添加一个。', reply_markup=menu_keyboard())
             return
         keyboard = [
             [InlineKeyboardButton(f"@{row['bot_username']}", callback_data=f"bot:{row['bot_username']}")]
             for row in bots
         ]
         keyboard.append([InlineKeyboardButton('⬅️ 返回', callback_data='menu:home')])
-        await query.edit_message_text('请选择要管理的 Bot：', reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.edit_message_text('请选择需要管理的 Bot：', reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
     if data == 'menu:home':
-        await query.edit_message_text('✅ 已回到主菜单。', reply_markup=menu_keyboard())
+        await query.edit_message_text('📋 已返回主菜单。', reply_markup=menu_keyboard())
         return
 
     if data == 'menu:welcome':
         context.user_data['await_manager_welcome'] = True
         await query.edit_message_text(
-            '请发送新的管理欢迎语。\n发送 /default 可恢复默认设置。',
+            '请发送新的管理员欢迎语。
+发送 /default 可恢复默认设置。',
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('⬅️ 返回', callback_data='menu:home')]])
         )
         return
 
     if data.startswith('bot:'):
         bot_username = data.split(':', 1)[1]
-        row = db.get_bot(bot_username)
-        if not row or row['owner_id'] != owner_id:
-            await query.edit_message_text('❌ 无法查看该 Bot。')
+        row = get_owned_bot(bot_username, owner_id)
+        if not row:
+            await query.edit_message_text('⚠️ 无法访问该 Bot，可能已被移除。')
             return
-        keyboard = [
-            [InlineKeyboardButton('🔐 切换私聊模式', callback_data=f"mode:{bot_username}:direct")],
-            [InlineKeyboardButton('🏷️ 切换 Topic 模式', callback_data=f"mode:{bot_username}:forum")],
-            [InlineKeyboardButton('📮 设置 Topic 群 ID', callback_data=f"forum:{bot_username}")],
-            [InlineKeyboardButton('👋 设置成员欢迎语', callback_data=f"welcome:{bot_username}")],
-            [InlineKeyboardButton('🗑️ 解除托管', callback_data=f"drop:{bot_username}")],
-            [InlineKeyboardButton('⬅️ 返回', callback_data='menu:list')],
-        ]
-        await query.edit_message_text(
-            format_bot_info(row),
-            parse_mode='HTML',
-            reply_markup=InlineKeyboardMarkup(keyboard),
-        )
+        await show_bot_detail(query, row)
         return
 
     if data.startswith('mode:'):
         _, bot_username, mode = data.split(':', 2)
-        row = db.get_bot(bot_username)
-        if not row or row['owner_id'] != owner_id:
-            await query.edit_message_text('❌ 未找到该 Bot。')
+        row = get_owned_bot(bot_username, owner_id)
+        if not row:
+            await query.edit_message_text('⚠️ 未找到对应 Bot。')
             return
         if mode == 'forum' and not row['forum_group_id']:
-            await query.edit_message_text('⚠️ 请先设置 Topic 群 ID。')
+            await query.edit_message_text('⚠️ 切换为 Topic 模式前请先绑定 Topic 群 ID。')
             return
         db.update_mode(bot_username, mode)
-        await query.edit_message_text(f'✅ @{bot_username} 已切换为 {"Topic" if mode == "forum" else "私聊"} 模式。', reply_markup=menu_keyboard())
         await send_admin_log(f'🔄 @{bot_username} 切换模式 -> {mode}')
+        row = db.get_bot(bot_username)
+        await show_bot_detail(query, row)
         return
 
     if data.startswith('forum:'):
         bot_username = data.split(':', 1)[1]
-        row = db.get_bot(bot_username)
-        if not row or row['owner_id'] != owner_id:
-            await query.edit_message_text('❌ 无法设置 Topic 群 ID。')
+        row = get_owned_bot(bot_username, owner_id)
+        if not row:
+            await query.edit_message_text('⚠️ 无法设置该 Bot 的 Topic。')
             return
         context.user_data['await_forum'] = {'bot_username': bot_username}
         await query.edit_message_text('请发送 Topic 所在群 ID（记得给 Bot 管理员权限）。')
@@ -311,9 +423,9 @@ async def manager_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     if data.startswith('drop:'):
         bot_username = data.split(':', 1)[1]
-        row = db.get_bot(bot_username)
-        if not row or row['owner_id'] != owner_id:
-            await query.edit_message_text('❌ 无法解除托管。')
+        row = get_owned_bot(bot_username, owner_id)
+        if not row:
+            await query.edit_message_text('⚠️ 无法解除托管。')
             return
         await shutdown_sub_bot(bot_username)
         db.remove_bot(bot_username)
@@ -323,17 +435,72 @@ async def manager_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     if data.startswith('welcome:'):
         bot_username = data.split(':', 1)[1]
-        row = db.get_bot(bot_username)
-        if not row or row['owner_id'] != owner_id:
-            await query.edit_message_text('❌ 无法设置该 Bot 的欢迎语。')
+        row = get_owned_bot(bot_username, owner_id)
+        if not row:
+            await query.edit_message_text('⚠️ 无法设置该 Bot 的欢迎语。')
             return
         context.user_data['await_client_welcome'] = {'bot_username': bot_username}
         await query.edit_message_text(
-            f'请发送 @{bot_username} 的成员欢迎语。\n发送 /default 可恢复默认。',
+            f'请发送 @{bot_username} 的成员欢迎语。
+发送 /default 可恢复默认。',
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('⬅️ 返回', callback_data=f"bot:{bot_username}")]])
         )
         return
 
+    if data.startswith('captcha:toggle:'):
+        bot_username = data.split(':', 2)[2]
+        row = get_owned_bot(bot_username, owner_id)
+        if not row:
+            await query.edit_message_text('⚠️ 无法切换验证码状态。')
+            return
+        new_status = not captcha_enabled(row)
+        db.set_captcha_enabled(bot_username, new_status)
+        row = db.get_bot(bot_username)
+        await show_bot_detail(query, row)
+        await query.answer('已开启' if new_status else '已关闭')
+        return
+
+    if data.startswith('captcha:topics:'):
+        bot_username = data.split(':', 2)[2]
+        row = get_owned_bot(bot_username, owner_id)
+        if not row:
+            await query.edit_message_text('⚠️ 无法设置题库。')
+            return
+        await show_captcha_topics(query, row)
+        return
+
+    if data.startswith('captcha:pool:'):
+        _, _, bot_username, key = data.split(':', 3)
+        row = get_owned_bot(bot_username, owner_id)
+        if not row:
+            await query.edit_message_text('⚠️ 无法设置题库。')
+            return
+        selected, _ = resolve_captcha_pools(row)
+        current = set(selected)
+        if key in CHALLENGE_OPTIONS:
+            if key in current and len(current) > 1:
+                current.remove(key)
+            else:
+                current.add(key)
+        if not current or len(current) == len(CHALLENGE_OPTIONS):
+            db.set_captcha_topics(bot_username, None)
+        else:
+            db.set_captcha_topics(bot_username, sorted(current))
+        row = db.get_bot(bot_username)
+        await show_captcha_topics(query, row)
+        return
+
+    if data.startswith('captcha:topicaction:'):
+        _, bot_username, action = data.split(':', 2)
+        row = get_owned_bot(bot_username, owner_id)
+        if not row:
+            await query.edit_message_text('⚠️ 无法设置题库。')
+            return
+        if action in {'all', 'reset'}:
+            db.set_captcha_topics(bot_username, None)
+        row = db.get_bot(bot_username)
+        await show_captcha_topics(query, row)
+        return
 # ------------ 子 Bot 逻辑 ------------
 async def subbot_start(update: Update, context: ContextTypes.DEFAULT_TYPE, owner_id: int, bot_username: str) -> None:
     message = update.message
@@ -342,11 +509,17 @@ async def subbot_start(update: Update, context: ContextTypes.DEFAULT_TYPE, owner
     user_id = message.from_user.id
     key = f"{bot_username}:{user_id}"
 
-    if db.is_verified(bot_username, user_id):
+    row = db.get_bot(bot_username)
+    if not row:
+        await message.reply_text("⚠️ Bot 配置已失效，请联系管理员。")
+        return
+
+    if not captcha_enabled(row) or db.is_verified(bot_username, user_id):
         await send_client_welcome(message, bot_username)
         return
 
-    challenge = build_challenge()
+    pools, _ = resolve_captcha_pools(row)
+    challenge = build_challenge(pools)
     pending_challenges[key] = challenge
     await message.reply_text(challenge.render(), parse_mode='HTML')
 
@@ -372,7 +545,7 @@ async def handle_client(update: Update, context: ContextTypes.DEFAULT_TYPE, owne
             await message.reply_text("🚫 你已被限制，请联系管理员申诉。")
             return
 
-        if not await ensure_verified(message, context, bot_username, owner_id):
+        if not await ensure_verified(message, context, bot_username, owner_id, row):
             return
 
         if row["mode"] == "direct":
@@ -401,9 +574,12 @@ def challenge_key(bot_username: str, user_id: int) -> str:
     return f"{bot_username}:{user_id}"
 
 
-async def ensure_verified(message, context, bot_username: str, owner_id: int) -> bool:
+async def ensure_verified(message, context, bot_username: str, owner_id: int, bot_row) -> bool:
     user_id = message.from_user.id
     key = challenge_key(bot_username, user_id)
+
+    if not captcha_enabled(bot_row):
+        return True
 
     if db.is_verified(bot_username, user_id):
         return True
@@ -415,9 +591,15 @@ async def ensure_verified(message, context, bot_username: str, owner_id: int) ->
             pending_challenges.pop(key, None)
             await send_client_welcome(message, bot_username)
             await notify_owner_verified(context.bot, owner_id, bot_username, message.from_user)
-            return True
+            return False
         await message.reply_text('❌ 答案不正确，请输入 /start 重新获取题目。')
         return False
+
+    pools, _ = resolve_captcha_pools(bot_row)
+    challenge = build_challenge(pools)
+    pending_challenges[key] = challenge
+    await message.reply_text(challenge.render(), parse_mode='HTML')
+    return False
 
     challenge = build_challenge()
     pending_challenges[key] = challenge
@@ -445,7 +627,7 @@ async def relay_direct(message, context, owner_id: int, bot_username: str) -> No
         message_id=message.message_id,
     )
     db.record_forward(bot_username, forwarded.message_id, message.chat_id)
-    await message.reply_text('📨 已送达客服，请稍候回复。', quote=True)
+    await send_ephemeral_reply(message, '📨 已送达客服，请稍候回复。', quote=True)
 
 
 async def relay_forum(message, context, row, bot_username: str) -> None:
@@ -466,7 +648,7 @@ async def relay_forum(message, context, row, bot_username: str) -> None:
             message_id=message.message_id,
             message_thread_id=tid,
         )
-        await message.reply_text("🗂️ 已投递到专属主题。", quote=True)
+        await send_ephemeral_reply(message, "🗂️ 已投递到专属主题。", quote=True)
 
     try:
         await _do_forward(topic_id)
