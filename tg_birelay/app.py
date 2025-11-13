@@ -632,7 +632,7 @@ async def relay_direct(message, context, owner_id: int, bot_username: str) -> No
         message_id=message.message_id,
     )
     db.record_forward(bot_username, forwarded.message_id, message.chat_id)
-    await send_ephemeral_reply(message, '📨 已送达客服，请稍候回复。', quote=True)
+    await send_ephemeral_reply(message, '📨 消息已送达，请耐心等待回复。', quote=True)
 
 
 async def relay_forum(message, context, row, bot_username: str) -> None:
@@ -653,7 +653,7 @@ async def relay_forum(message, context, row, bot_username: str) -> None:
             message_id=message.message_id,
             message_thread_id=tid,
         )
-        await send_ephemeral_reply(message, "🗂️ 已投递到专属主题。", quote=True)
+        await send_ephemeral_reply(message, "🗂️ 消息已送达，请耐心等待回复。", quote=True)
 
     try:
         await _do_forward(topic_id)
