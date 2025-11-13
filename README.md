@@ -13,17 +13,19 @@ TGBiRelay（Telegram Bidirectional Relay）专为 TG 双向客服/托管场景�
 ```
 tg_birelay/
 ├── README.md          # 使用说明
-├── app.py             # 运行入口（管理端 + 子 Bot 逻辑）
-├── database.py        # SQLite 封装与数据访问
-├── captcha.py         # 验证码生成器
-└── install.sh         # 一键安装/卸载脚本
+├── install.sh         # 一键安装/卸载脚本
+└── tg_birelay/        # Python 包
+    ├── __init__.py
+    ├── app.py         # 主进程 + Bot 逻辑
+    ├── database.py    # SQLite 封装 + 数据访问
+    └── captcha.py     # 验证码模块
 ```
 
 ## 一键安装脚本
 
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/tohka0x01/tg_birelay/master/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/tohka0x01/tg_birelay/main/install.sh)
 ```
 
 脚本会：
@@ -40,18 +42,20 @@ bash <(curl -Ls https://raw.githubusercontent.com/tohka0x01/tg_birelay/master/in
 
 ## 手动运行（开发/调试）
 
-1. 安装依赖：
+1. 安装依赖
    ```bash
    pip install python-telegram-bot==20.7 python-dotenv
    ```
-2. 在仓库根目录创建 `.env`：
+2. 在代码根目录创建 .env
    ```env
-   MANAGER_TOKEN=你的管理端 Bot Token
-   ADMIN_CHANNEL=可选：接收日志的频道/群 ID
-   DATABASE_PATH=./tg_hosts.db   # 可省略，默认同级
+   MANAGER_TOKEN=你的管理 Bot Token
+   ADMIN_CHANNEL=选填日志频道/群 ID
+   DATABASE_PATH=./tg_hosts.db   # 可选，默认为本地
    ```
-3. 启动程序：
+3. 启动程序
    ```bash
-   python -m tg_birelay.app
+   cd /opt/tg_birelay && python -m tg_birelay.app
+   # 如果人在 tg_birelay 子目录中, 请手动添加 PYTHONPATH
+   # PYTHONPATH=$(pwd)/.. python -m tg_birelay.app
    ```
-4. 打开管理 Bot，通过菜单添加子 Bot Token、绑定 Topic 群 ID、切换私聊/Topic 模式，并可在“📝 管理欢迎语 / 👋 成员欢迎语”中自定义 `/start` 文案。普通用户在 TG 内完成验证码、黑名单校验与双向沟通。
+4. 打开管理 Bot，按提示传入 Bot Token、Topic ID 等数据, 完成配置后可直接进行 TG ˫向交互测试。

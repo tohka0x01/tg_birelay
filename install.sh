@@ -6,10 +6,10 @@ set -euo pipefail
 
 APP_DIR=${APP_DIR:-/opt/tg_birelay}
 SERVICE_NAME=${SERVICE_NAME:-tgbirelay}
-REPO_BASE=${REPO_BASE:-https://raw.githubusercontent.com/tohka0x01/tg_birelay/master}
+REPO_BASE=${REPO_BASE:-https://raw.githubusercontent.com/tohka0x01/tg_birelay/main}
 PYTHON_BIN="$APP_DIR/venv/bin/python"
 MODULE_ENTRY="tg_birelay.app"
-FILES=(__init__.py app.py database.py captcha.py README.md install.sh)
+FILES=(tg_birelay/__init__.py tg_birelay/app.py tg_birelay/database.py tg_birelay/captcha.py README.md install.sh)
 APT_UPDATED=0
 
 need_root() {
@@ -43,8 +43,10 @@ install_prereqs() {
 fetch_sources() {
   mkdir -p "$APP_DIR"
   for file in "${FILES[@]}"; do
-    echo "⬇️  拉取 $file"
-    curl -fsSL "$REPO_BASE/$file" -o "$APP_DIR/$file"
+    echo "??  ��ȡ $file"
+    target="$APP_DIR/$file"
+    mkdir -p "$(dirname "$target")"
+    curl -fsSL "$REPO_BASE/$file" -o "$target"
   done
 }
 
@@ -83,6 +85,7 @@ After=network.target
 Type=simple
 WorkingDirectory=$APP_DIR
 EnvironmentFile=$APP_DIR/.env
+Environment=PYTHONPATH=$APP_DIR
 ExecStart=$PYTHON_BIN -m $MODULE_ENTRY
 Restart=on-failure
 RestartSec=5
@@ -98,6 +101,9 @@ EOF
 install_app() {
   need_root
   install_prereqs
+  mkdir -p "$APP_DIR"
+  APP_DIR=$(cd "$APP_DIR" && pwd)
+  PYTHON_BIN="$APP_DIR/venv/bin/python"
   fetch_sources
   setup_venv
   write_env_file

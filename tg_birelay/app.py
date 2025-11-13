@@ -259,8 +259,7 @@ async def manager_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if data == 'menu:welcome':
         context.user_data['await_manager_welcome'] = True
         await query.edit_message_text(
-            '请发送新的管理欢迎语。
-发送 /default 可恢复默认设置。',
+            '请发送新的管理欢迎语。\n发送 /default 可恢复默认设置。',
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('⬅️ 返回', callback_data='menu:home')]])
         )
         return
@@ -330,8 +329,7 @@ async def manager_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             return
         context.user_data['await_client_welcome'] = {'bot_username': bot_username}
         await query.edit_message_text(
-            f'请发送 @{bot_username} 的成员欢迎语。
-发送 /default 可恢复默认。',
+            f'请发送 @{bot_username} 的成员欢迎语。\n发送 /default 可恢复默认。',
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('⬅️ 返回', callback_data=f"bot:{bot_username}")]])
         )
         return
@@ -429,12 +427,9 @@ async def ensure_verified(message, context, bot_username: str, owner_id: int) ->
 
 async def notify_owner_verified(bot: Bot, owner_id: int, bot_username: str, user) -> None:
     text = (
-        "🆗 有用户通过验证
-"
-        f"🤖 @{bot_username}
-"
-        f"👤 {user.full_name or '访客'}
-"
+        "🆗 有用户通过验证\n"
+        f"🤖 @{bot_username}\n"
+        f"👤 {user.full_name or '访客'}\n"
         f"🆔 <code>{user.id}</code>"
     )
     try:
